@@ -13,7 +13,7 @@ import java.util.Map;
 @RestController
 // @RestController = @Controller + @ResponseBody
 // Le dice a Spring que esta clase maneja peticiones HTTP y que
-// cada método devuelve datos (JSON) directamente, no una vista HTML.
+// cada metodo devuelve datos (JSON) directamente, no una vista HTML.
 @RequestMapping("/auth")
 // Todas las rutas de este controlador empezarán con /auth:
 // /auth/register, /auth/login, etc.
@@ -50,7 +50,7 @@ public class AuthController {
     @PostMapping("/register")
     // @Valid activa las validaciones de @NotBlank que pusimos en AuthRequest.
     // Si el JSON llega sin username o password, Spring devuelve 400 Bad Request
-    // automáticamente antes de que el método se ejecute.
+    // automáticamente antes de que el metodo se ejecute.
     // @RequestBody le dice a Spring que el objeto viene del body del request en formato JSON.
     public ResponseEntity<Map<String, String>> register(@Valid @RequestBody AuthRequest request) {
         String token = authService.register(request.getUsername(), request.getPassword());
