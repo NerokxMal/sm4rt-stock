@@ -2,8 +2,8 @@
 
 > REST API de gestión de inventario desarrollada con Spring Boot, MySQL y JWT.
 
-![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-brightgreen?style=flat-square&logo=springboot)
+![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-brightgreen?style=flat-square&logo=springboot)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?style=flat-square&logo=mysql)
 ![JWT](https://img.shields.io/badge/JWT-Auth-black?style=flat-square&logo=jsonwebtokens)
 ![Maven](https://img.shields.io/badge/Maven-3.9-red?style=flat-square&logo=apachemaven)
@@ -12,7 +12,7 @@
 
 ## 📋 Descripción
 
-**sm4rt-stock** es una API REST fullstack para gestión de inventario de productos. Permite crear, consultar, actualizar y eliminar productos y categorías, con autenticación JWT y base de datos MySQL en la nube (Aiven).
+**sm4rt-stock** es una API REST para gestión de inventario de productos. Permite crear, consultar, actualizar y eliminar productos y categorías, con autenticación JWT stateless y base de datos MySQL en la nube (Aiven).
 
 Este proyecto fue desarrollado como parte de mi portafolio profesional para demostrar habilidades en desarrollo backend con Java y Spring Boot.
 
@@ -22,11 +22,11 @@ Este proyecto fue desarrollado como parte de mi portafolio profesional para demo
 
 | Tecnología | Versión | Uso |
 |---|---|---|
-| Java | 21 | Lenguaje principal |
-| Spring Boot | 3.5.13 | Framework backend |
-| Spring Security | 6.5 | Autenticación y autorización |
-| Spring Data JPA | 3.5 | Persistencia de datos |
-| Hibernate | 6.6 | ORM |
+| Java | 17 | Lenguaje principal |
+| Spring Boot | 3.x | Framework backend |
+| Spring Security | 6.x | Autenticación y autorización |
+| Spring Data JPA | 3.x | Persistencia de datos |
+| Hibernate | 6.x | ORM |
 | MySQL (Aiven) | 8.0 | Base de datos en la nube |
 | JWT (jjwt) | 0.11.5 | Tokens de autenticación |
 | Lombok | 1.18 | Reducción de código boilerplate |
@@ -112,7 +112,7 @@ La API estará disponible en: `http://localhost:8080`
 
 ## 📡 Endpoints
 
-### 🔓 Públicos (sin autenticación)
+### 🔓 Públicos — Solo lectura (sin autenticación)
 
 #### Productos
 
@@ -131,7 +131,14 @@ La API estará disponible en: `http://localhost:8080`
 | `GET` | `/categorias` | Listar todas las categorías |
 | `GET` | `/categorias/{id}` | Obtener categoría por ID |
 
-### 🔐 Protegidos (requieren JWT)
+#### Autenticación
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `POST` | `/auth/register` | Registrar usuario |
+| `POST` | `/auth/login` | Iniciar sesión y obtener JWT |
+
+### 🔐 Protegidos — Requieren JWT (`Authorization: Bearer <token>`)
 
 #### Productos
 
@@ -153,12 +160,45 @@ La API estará disponible en: `http://localhost:8080`
 
 ## 📝 Ejemplos de uso
 
+### Obtener token JWT
+
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "tu_password"
+}
+```
+
+**Respuesta:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzUxMiJ9..."
+}
+```
+
+### Crear una categoría
+
+```http
+POST /categorias
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
+
+{
+  "nombre": "Electrónica",
+  "descripcion": "Dispositivos electrónicos"
+}
+```
+
 ### Crear un producto
 
 ```http
 POST /productos
 Content-Type: application/json
-Authorization: Bearer {token}
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
 
 {
   "nombre": "Laptop Lenovo",
@@ -187,29 +227,16 @@ Authorization: Bearer {token}
 }
 ```
 
-### Crear una categoría
-
-```http
-POST /categorias
-Content-Type: application/json
-Authorization: Bearer {token}
-
-{
-  "nombre": "Electrónica",
-  "descripcion": "Dispositivos electrónicos"
-}
-```
-
 ---
 
 ## 🔒 Seguridad
 
-- **JWT** para autenticación stateless
-- **Spring Security** para autorización por roles
-- **CORS** configurado con patrones de origen
-- **Bean Validation** para validación de datos de entrada
-- **Variables de entorno** para protección de credenciales
-- **CSRF desactivado** para APIs REST stateless
+- **JWT** para autenticación stateless — los tokens expiran según `JWT_EXPIRATION` (por defecto 24h)
+- **Spring Security** para control de acceso por ruta y método HTTP
+- **CORS** configurado para aceptar cualquier puerto en `localhost` o `127.0.0.1`
+- **Bean Validation** para validación de datos de entrada en cada request
+- **Variables de entorno** para proteger credenciales fuera del código fuente
+- **CSRF desactivado** — apropiado para APIs REST stateless
 
 ---
 
@@ -228,9 +255,11 @@ id           BIGINT PK
 nombre       VARCHAR(255) NOT NULL
 descripcion  VARCHAR(500)
 precio       DOUBLE NOT NULL
-stock        INT NOT NULL
-categoria_id BIGINT FK → Categoria
+stock        INT NOT NULL (≥ 0)
+categoria_id BIGINT FK → Categoria (nullable)
 ```
+
+> Hibernate gestiona el esquema automáticamente con `ddl-auto=update`.
 
 ---
 
