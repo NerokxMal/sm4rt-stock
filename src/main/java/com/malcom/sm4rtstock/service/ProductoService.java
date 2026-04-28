@@ -1,5 +1,6 @@
 package com.malcom.sm4rtstock.service;
 
+import com.malcom.sm4rtstock.exception.ResourceNotFoundException;
 import com.malcom.sm4rtstock.model.Producto;
 import com.malcom.sm4rtstock.repository.ProductoRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,9 @@ public class ProductoService {
 
     public Producto obtenerPorId(Long id) {
         return productoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado con id: " + id));
+                // ResourceNotFoundException → 404 cuando el producto no existe
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Producto no encontrado con id: " + id));
     }
 
     public Producto crear(Producto producto) {
@@ -43,7 +46,6 @@ public class ProductoService {
 
     public List<Producto> buscarPorCategoria(String categoria) {
         return productoRepository.findByCategoriaNombre(categoria);
-
     }
 
     public List<Producto> buscarPorNombre(String nombre) {

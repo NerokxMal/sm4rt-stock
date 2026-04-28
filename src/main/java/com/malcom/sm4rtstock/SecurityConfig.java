@@ -8,6 +8,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -22,11 +24,24 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    // Ya no inyectamos UserRepository aquí — UserDetailsServiceImpl
+    // lo maneja de forma independiente y Spring lo encuentra automáticamente
+    // gracias a que implementa la interfaz UserDetailsService con @Service.
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(10);
+    }
+
+    // El Bean userDetailsService() fue eliminado de aquí.
+    // Spring detecta automáticamente UserDetailsServiceImpl porque:
+    // 1. Tiene @Service
+    // 2. Implementa UserDetailsService
+    // No necesita estar declarado explícitamente en SecurityConfig.
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Esto permite CUALQUIER puerto local de forma dinámica y segura
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:[*]",
                 "http://127.0.0.1:[*]"
@@ -45,19 +60,14 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ACCESO PÚBLICO: Solo lectura (GET) para que el Dashboard funcione
                         .requestMatchers(HttpMethod.GET, "/productos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/categorias/**").permitAll()
-
-                        // ACCESO PÚBLICO: Registro y Login
                         .requestMatchers("/auth/**").permitAll()
-
-                        // PROTECCIÓN TOTAL: Cualquier otra acción (POST, PUT, DELETE) requiere JWT
                         .anyRequest().authenticated()
                 )
-                // Tu filtro manual de JWT entrará en juego aquí
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
