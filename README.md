@@ -14,7 +14,7 @@
 
 **sm4rt-stock** es una API REST para gestión de inventario de productos. Permite crear, consultar, actualizar y eliminar productos y categorías, con autenticación JWT stateless y base de datos MySQL en la nube (Aiven).
 
-Este proyecto fue desarrollado como parte de mi portafolio profesional para demostrar habilidades en desarrollo backend con Java y Spring Boot.
+Proyecto desarrollado como parte de mi portafolio profesional para demostrar habilidades en desarrollo backend con Java y Spring Boot.
 
 ---
 
@@ -41,24 +41,31 @@ El proyecto sigue una arquitectura en capas:
 ```
 sm4rt-stock/
 ├── src/main/java/com/malcom/sm4rtstock/
-│   ├── controller/          # Endpoints REST
+│   ├── controller/
+│   │   ├── AuthController.java
 │   │   ├── ProductoController.java
 │   │   └── CategoriaController.java
-│   ├── service/             # Lógica de negocio
+│   ├── service/
+│   │   ├── AuthService.java
+│   │   ├── UserDetailsServiceImpl.java
 │   │   ├── ProductoService.java
 │   │   └── CategoriaService.java
-│   ├── repository/          # Acceso a datos (JPA)
+│   ├── repository/
+│   │   ├── UserRepository.java
 │   │   ├── ProductoRepository.java
 │   │   └── CategoriaRepository.java
-│   ├── model/               # Entidades JPA
+│   ├── model/
+│   │   ├── User.java
 │   │   ├── Producto.java
 │   │   └── Categoria.java
-│   ├── security/            # JWT y Spring Security
+│   ├── security/
 │   │   ├── JwtTokenProvider.java
 │   │   └── JwtAuthFilter.java
-│   ├── exception/           # Manejo global de errores
-│   │   └── GlobalExceptionHandler.java
-│   └── SecurityConfig.java  # Configuración de seguridad
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java
+│   │   ├── ResourceNotFoundException.java
+│   │   └── ConflictException.java
+│   └── SecurityConfig.java
 └── src/main/resources/
     └── application.properties
 ```
@@ -82,76 +89,68 @@ cd sm4rt-stock
 
 ### 2. Configurar variables de entorno
 
-Copia el archivo de ejemplo y completa con tus datos:
-
 ```bash
 cp .env.example .env
 ```
 
-Edita el `.env` con tus credenciales:
+Edita `.env` con tus credenciales:
 
 ```env
 DB_URL=jdbc:mysql://TU_HOST:TU_PUERTO/TU_DB?ssl-mode=REQUIRED
 DB_USER=TU_USUARIO
 DB_PASSWORD=TU_PASSWORD
-JWT_SECRET=TU_SECRETO_JWT_MUY_LARGO_Y_SEGURO
+JWT_SECRET=TU_SECRETO_DE_AL_MENOS_64_CARACTERES
 JWT_EXPIRATION=86400000
 ```
 
-### 3. Ejecutar el proyecto
+> ⚠️ El `JWT_SECRET` necesita **mínimo 64 caracteres** para el algoritmo HS512.
+> Genera uno seguro con: `openssl rand -base64 64`
+
+### 3. Ejecutar
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-O desde IntelliJ IDEA: **Run → Sm4rtStockApplication**
-
-La API estará disponible en: `http://localhost:8080`
+API disponible en `http://localhost:8080`
 
 ---
 
 ## 📡 Endpoints
 
-### 🔓 Públicos — Solo lectura (sin autenticación)
-
-#### Productos
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/productos` | Listar todos los productos |
-| `GET` | `/productos/{id}` | Obtener producto por ID |
-| `GET` | `/productos/buscar?nombre=X` | Buscar por nombre |
-| `GET` | `/productos/categoria/{nombre}` | Filtrar por categoría |
-| `GET` | `/productos/stock-bajo?limite=X` | Productos con stock bajo |
-
-#### Categorías
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/categorias` | Listar todas las categorías |
-| `GET` | `/categorias/{id}` | Obtener categoría por ID |
+### 🔓 Públicos (sin autenticación)
 
 #### Autenticación
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| `POST` | `/auth/register` | Registrar usuario |
-| `POST` | `/auth/login` | Iniciar sesión y obtener JWT |
+| `POST` | `/auth/register` | Registrar nuevo usuario |
+| `POST` | `/auth/login` | Iniciar sesión → devuelve JWT |
 
-### 🔐 Protegidos — Requieren JWT (`Authorization: Bearer <token>`)
+#### Productos (solo lectura)
 
-#### Productos
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/productos` | Listar todos |
+| `GET` | `/productos/{id}` | Obtener por ID |
+| `GET` | `/productos/buscar?nombre=X` | Buscar por nombre |
+| `GET` | `/productos/categoria/{nombre}` | Filtrar por categoría |
+| `GET` | `/productos/stock-bajo?limite=X` | Stock crítico |
+
+#### Categorías (solo lectura)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/categorias` | Listar todas |
+| `GET` | `/categorias/{id}` | Obtener por ID |
+
+### 🔐 Protegidos — `Authorization: Bearer <token>`
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `POST` | `/productos` | Crear producto |
 | `PUT` | `/productos/{id}` | Actualizar producto |
 | `DELETE` | `/productos/{id}` | Eliminar producto |
-
-#### Categorías
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
 | `POST` | `/categorias` | Crear categoría |
 | `PUT` | `/categorias/{id}` | Actualizar categoría |
 | `DELETE` | `/categorias/{id}` | Eliminar categoría |
@@ -160,40 +159,20 @@ La API estará disponible en: `http://localhost:8080`
 
 ## 📝 Ejemplos de uso
 
-### Obtener token JWT
+### Registro / Login
 
 ```http
 POST /auth/login
 Content-Type: application/json
 
-{
-  "username": "admin",
-  "password": "tu_password"
-}
+{ "username": "malcom", "password": "miPassword123" }
 ```
-
-**Respuesta:**
 
 ```json
-{
-  "token": "eyJhbGciOiJIUzUxMiJ9..."
-}
+{ "token": "eyJhbGciOiJIUzUxMiJ9..." }
 ```
 
-### Crear una categoría
-
-```http
-POST /categorias
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
-
-{
-  "nombre": "Electrónica",
-  "descripcion": "Dispositivos electrónicos"
-}
-```
-
-### Crear un producto
+### Crear producto (con token)
 
 ```http
 POST /productos
@@ -205,25 +184,7 @@ Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
   "descripcion": "Laptop para desarrollo",
   "precio": 2500000.00,
   "stock": 10,
-  "categoria": {
-    "id": 1
-  }
-}
-```
-
-**Respuesta exitosa (201 Created):**
-
-```json
-{
-  "id": 1,
-  "nombre": "Laptop Lenovo",
-  "descripcion": "Laptop para desarrollo",
-  "precio": 2500000.0,
-  "stock": 10,
-  "categoria": {
-    "id": 1,
-    "nombre": "Electrónica"
-  }
+  "categoria": { "id": 1 }
 }
 ```
 
@@ -231,11 +192,11 @@ Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
 
 ## 🔒 Seguridad
 
-- **JWT** para autenticación stateless — los tokens expiran según `JWT_EXPIRATION` (por defecto 24h)
-- **Spring Security** para control de acceso por ruta y método HTTP
-- **CORS** configurado para aceptar cualquier puerto en `localhost` o `127.0.0.1`
-- **Bean Validation** para validación de datos de entrada en cada request
-- **Variables de entorno** para proteger credenciales fuera del código fuente
+- **JWT HS512** — tokens stateless con expiración configurable (por defecto 24h)
+- **BCrypt (coste 10)** — contraseñas hasheadas, nunca en texto plano
+- **Spring Security** — control de acceso por ruta y método HTTP
+- **Códigos HTTP semánticos** — 401, 404, 409 según el tipo de error real
+- **Variables de entorno** — credenciales fuera del código fuente
 - **CSRF desactivado** — apropiado para APIs REST stateless
 
 ---
@@ -243,31 +204,35 @@ Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
 ## 🗄️ Modelo de datos
 
 ```
+User
+─────────────────────
+id          BIGINT PK
+username    VARCHAR UNIQUE NOT NULL
+password    VARCHAR NOT NULL  ← hash BCrypt
+
 Categoria
 ─────────────────────
 id          BIGINT PK
-nombre      VARCHAR(255) UNIQUE NOT NULL
+nombre      VARCHAR UNIQUE NOT NULL
 descripcion VARCHAR(500)
 
 Producto
 ─────────────────────
 id           BIGINT PK
-nombre       VARCHAR(255) NOT NULL
+nombre       VARCHAR NOT NULL
 descripcion  VARCHAR(500)
-precio       DOUBLE NOT NULL
-stock        INT NOT NULL (≥ 0)
+precio       DOUBLE NOT NULL (> 0)
+stock        INT NOT NULL    (≥ 0)
 categoria_id BIGINT FK → Categoria (nullable)
 ```
 
-> Hibernate gestiona el esquema automáticamente con `ddl-auto=update`.
+> Hibernate gestiona el esquema con `ddl-auto=update`.
 
 ---
 
 ## 🌐 Frontend
 
-Este backend tiene un frontend complementario desarrollado en HTML, CSS y JavaScript vanilla:
-
-🔗 [sm4rt-stock-frontend](https://github.com/NerokxMal/sm4rt-stock-frontend)
+🔗 [sm4rt-stock-frontend](https://github.com/NerokxMal/sm4rt-stock-frontend) — Astro + TypeScript
 
 ---
 
@@ -281,4 +246,4 @@ Este backend tiene un frontend complementario desarrollado en HTML, CSS y JavaSc
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia MIT.
+MIT
