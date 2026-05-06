@@ -31,6 +31,11 @@ import java.util.List;
 // y permisos de este objeto — sin necesidad de configuración extra.
 public class User implements UserDetails {
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Role role = Role.USER;  // por defecto toodo usuario nuevo es USER
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     // GenerationType.IDENTITY le dice a MySQL que use AUTO_INCREMENT.
@@ -57,12 +62,11 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Los "authorities" son los roles o permisos del usuario.
-        // Por ahora todos tienen el mismo rol: ROLE_USER.
-        // Si en el futuro quieres un rol ADMIN con permisos extra,
-        // agregarías una columna "role" a esta entidad y la devolverías aquí.
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        // Genera "ROLE_ADMIN" o "ROLE_USER"
+        // Spring Security requiere el prefijo ROLE_ para hasRole()
     }
+
 
     @Override
     public boolean isAccountNonExpired() {

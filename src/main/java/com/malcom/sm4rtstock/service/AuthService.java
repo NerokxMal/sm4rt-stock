@@ -1,6 +1,8 @@
 package com.malcom.sm4rtstock.service;
 
 import com.malcom.sm4rtstock.exception.ConflictException;
+import com.malcom.sm4rtstock.exception.ResourceNotFoundException;
+import com.malcom.sm4rtstock.model.Role;
 import com.malcom.sm4rtstock.model.User;
 import com.malcom.sm4rtstock.repository.UserRepository;
 import com.malcom.sm4rtstock.security.JwtTokenProvider;
@@ -17,23 +19,38 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public String register(String username, String password) {
+    // ─── Record de respuesta ──────────────────────────────────────────
+    // Un record en Java es una clase inmutable con getters automáticos.
+    // token() y role() son los getters — Java los genera solo.
+    // Lo definimos aquí adentro del servicio porque solo lo usan
+    // AuthService y AuthController.
+
+    public record AuthResponse(String token, String role) {}
+
+    // ─── REGISTRO ─────────────────────────────────────────────────────
+
+    public AuthResponse register(String username, String password) {
         if (userRepository.existsByUsername(username)) {
-            // Antes: RuntimeException → devolvía 404 (incorrecto)
-            // Ahora: ConflictException → devuelve 409 (correcto)
             throw new ConflictException("El nombre de usuario ya está en uso: " + username);
         }
 
         User user = User.builder()
                 .username(username)
                 .password(passwordEncoder.encode(password))
+                // .role() no se pone — el @Builder.Default en User lo setea en Role.USER
                 .build();
 
         userRepository.save(user);
-        return jwtTokenProvider.generateToken(username);
+
+        // generateToken ahora recibe el User completo (para leer el rol)
+        String token = jwtTokenProvider.generateToken(user);
+
+        return new AuthResponse(token, user.getRole().name());
     }
 
-    public String login(String username, String password) {
+    // ─── LOGIN ────────────────────────────────────────────────────────
+
+    public AuthResponse login(String username, String password) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new BadCredentialsException("Credenciales incorrectas"));
 
@@ -41,6 +58,18 @@ public class AuthService {
             throw new BadCredentialsException("Credenciales incorrectas");
         }
 
-        return jwtTokenProvider.generateToken(username);
+        String token = jwtTokenProvider.generateToken(user);
+
+        return new AuthResponse(token, user.getRole().name());
+    }
+
+    // ─── CAMBIAR ROL ──────────────────────────────────────────────────
+
+    public void cambiarRol(String username, Role role) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Usuario no encontrado: " + username));
+        user.setRole(role);
+        userRepository.save(user);
     }
 }

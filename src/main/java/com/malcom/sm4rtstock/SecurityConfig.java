@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -65,7 +67,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/productos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/categorias/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/movimientos/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/dashboard/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        // Solo ADMIN puede crear, editar, eliminar:
+                        .requestMatchers(HttpMethod.POST, "/productos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/productos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/productos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/categorias/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/categorias/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/categorias/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
