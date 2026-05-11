@@ -48,9 +48,10 @@ public class SecurityConfig {
                 "http://localhost:[*]",
                 "http://127.0.0.1:[*]",
                 "https://sm4rt-stock.netlify.app",
-                "https://*.netlify.app"
+                "https://*.netlify.app",
+                "https://*.vercel.app"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 
