@@ -2,6 +2,7 @@ package com.malcom.sm4rtstock.repository;
 
 import com.malcom.sm4rtstock.model.Movimiento;
 import com.malcom.sm4rtstock.model.TipoMovimiento;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,4 +39,15 @@ public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
             @Param("hasta") LocalDateTime hasta,
             @Param("tipo")  TipoMovimiento tipo
     );
+
+    @Query("""
+        SELECT m FROM Movimiento m
+        LEFT JOIN m.producto p
+        LEFT JOIN m.usuario u
+        WHERE LOWER(COALESCE(p.nombre, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
+           OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
+           OR LOWER(COALESCE(m.motivo, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
+        ORDER BY m.fecha DESC
+        """)
+    List<Movimiento> buscarGlobal(@Param("termino") String termino, Pageable pageable);
 }

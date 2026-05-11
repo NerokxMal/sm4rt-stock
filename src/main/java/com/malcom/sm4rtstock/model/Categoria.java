@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 @Entity
@@ -24,6 +25,15 @@ public class Categoria {
 
     @Size(max = 500)
     private String descripcion;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "parent_id")
+    @JsonIgnoreProperties({"parent", "hijas", "productos"})
+    private Categoria parent;
+
+    @OneToMany(mappedBy = "parent")
+    @JsonIgnore
+    private List<Categoria> hijas;
 
     @OneToMany(mappedBy = "categoria", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

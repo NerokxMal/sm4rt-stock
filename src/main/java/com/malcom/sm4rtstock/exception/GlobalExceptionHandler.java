@@ -72,6 +72,13 @@ public class GlobalExceptionHandler {
                 .body(errores);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
     // ─── 500 INTERNAL SERVER ERROR — Fallback ─────────────────────────
     // Captura cualquier excepción que no hayamos contemplado arriba.
     // Es el "último recurso" — preferimos que llegue aquí lo menos posible.

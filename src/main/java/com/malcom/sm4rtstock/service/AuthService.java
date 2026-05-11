@@ -2,6 +2,7 @@ package com.malcom.sm4rtstock.service;
 
 import com.malcom.sm4rtstock.exception.ConflictException;
 import com.malcom.sm4rtstock.exception.ResourceNotFoundException;
+import com.malcom.sm4rtstock.model.Permission;
 import com.malcom.sm4rtstock.model.Role;
 import com.malcom.sm4rtstock.model.User;
 import com.malcom.sm4rtstock.repository.UserRepository;
@@ -11,7 +12,9 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -20,14 +23,15 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuditoriaService auditoriaService;
 
     // ─── Record de respuesta auth ─────────────────────────────────────
-    public record AuthResponse(String token, String role) {}
+    public record AuthResponse(String token, String role, Set<Permission> permissions) {}
 
     // ─── Record para exponer datos de usuario sin la contraseña ───────
     // Nunca enviamos el hash de contraseña al frontend.
     // Este record es lo que devuelve GET /auth/users.
-    public record UsuarioDTO(Long id, String username, String role, boolean enabled) {}
+    public record UsuarioDTO(Long id, String username, String role, boolean enabled, Set<Permission> permissions) {}
 
     // ─── REGISTRO ─────────────────────────────────────────────────────
     public AuthResponse register(String username, String password) {
@@ -37,9 +41,20 @@ public class AuthService {
         User user = User.builder()
                 .username(username)
                 .password(passwordEncoder.encode(password))
+                .permissions(Permission.defaultsForRole(Role.USER))
                 .build();
         userRepository.save(user);
-        return new AuthResponse(jwtTokenProvider.generateToken(user), user.getRole().name());
+        auditoriaService.registrar(
+                "CREAR",
+                "USUARIO",
+                user.getId(),
+                "Registro de nuevo usuario: " + user.getUsername()
+        );
+        return new AuthResponse(
+                jwtTokenProvider.generateToken(user),
+                user.getRole().name(),
+                copiarPermisos(user.getPermissions())
+        );
     }
 
     // ─── REGISTRO CON ROL ESPECÍFICO (para crear desde configuración) ─
@@ -53,9 +68,20 @@ public class AuthService {
                 .username(username)
                 .password(passwordEncoder.encode(password))
                 .role(role)
+                .permissions(Permission.defaultsForRole(role))
                 .build();
         userRepository.save(user);
-        return new AuthResponse(jwtTokenProvider.generateToken(user), user.getRole().name());
+        auditoriaService.registrar(
+                "CREAR",
+                "USUARIO",
+                user.getId(),
+                "Usuario creado por administrador: " + user.getUsername() + " [" + role.name() + "]"
+        );
+        return new AuthResponse(
+                jwtTokenProvider.generateToken(user),
+                user.getRole().name(),
+                copiarPermisos(user.getPermissions())
+        );
     }
 
     // ─── LOGIN ────────────────────────────────────────────────────────
@@ -65,7 +91,12 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BadCredentialsException("Credenciales incorrectas");
         }
-        return new AuthResponse(jwtTokenProvider.generateToken(user), user.getRole().name());
+        normalizarPermisosSiFaltan(user);
+        return new AuthResponse(
+                jwtTokenProvider.generateToken(user),
+                user.getRole().name(),
+                copiarPermisos(user.getPermissions())
+        );
     }
 
     // ─── LISTAR USUARIOS ──────────────────────────────────────────────
@@ -73,7 +104,14 @@ public class AuthService {
     // Solo ADMIN puede llamar esto.
     public List<UsuarioDTO> listarUsuarios() {
         return userRepository.findAll().stream()
-                .map(u -> new UsuarioDTO(u.getId(), u.getUsername(), u.getRole().name(), u.isEnabled()))
+                .peek(this::normalizarPermisosSiFaltan)
+                .map(u -> new UsuarioDTO(
+                        u.getId(),
+                        u.getUsername(),
+                        u.getRole().name(),
+                        u.isEnabled(),
+                        copiarPermisos(u.getPermissions())
+                ))
                 .toList();
     }
 
@@ -82,7 +120,29 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
         user.setRole(role);
+        user.setPermissions(Permission.defaultsForRole(role));
         userRepository.save(user);
+        auditoriaService.registrar(
+                "CAMBIAR_ROL",
+                "USUARIO",
+                user.getId(),
+                "Rol actualizado para " + user.getUsername() + ": " + role.name()
+        );
+    }
+
+    public void actualizarPermisos(String username, Set<Permission> permisos) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
+        user.setPermissions(permisos == null || permisos.isEmpty()
+                ? EnumSet.noneOf(Permission.class)
+                : EnumSet.copyOf(permisos));
+        userRepository.save(user);
+        auditoriaService.registrar(
+                "ACTUALIZAR_PERMISOS",
+                "USUARIO",
+                user.getId(),
+                "Permisos actualizados para " + user.getUsername()
+        );
     }
 
     // ─── TOGGLE ESTADO (activar / desactivar) ─────────────────────────
@@ -93,6 +153,12 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
         user.setEnabled(!user.isEnabled());
         userRepository.save(user);
+        auditoriaService.registrar(
+                "CAMBIAR_ESTADO",
+                "USUARIO",
+                user.getId(),
+                "Cuenta " + (user.isEnabled() ? "activada" : "desactivada") + ": " + user.getUsername()
+        );
         return user.isEnabled(); // devuelve el nuevo estado
     }
 
@@ -110,5 +176,42 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(passwordNuevo));
         userRepository.save(user);
+        auditoriaService.registrar(
+                "CAMBIAR_PASSWORD",
+                "USUARIO",
+                user.getId(),
+                "Cambio de contraseña para el usuario " + user.getUsername()
+        );
+    }
+
+    public UsuarioDTO obtenerUsuarioPorUsername(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
+        normalizarPermisosSiFaltan(user);
+        return new UsuarioDTO(
+                user.getId(),
+                user.getUsername(),
+                user.getRole().name(),
+                user.isEnabled(),
+                copiarPermisos(user.getPermissions())
+        );
+    }
+
+    public List<Permission> listarPermisosDisponibles() {
+        return List.of(Permission.values());
+    }
+
+    private void normalizarPermisosSiFaltan(User user) {
+        if (user.getPermissions() == null || user.getPermissions().isEmpty()) {
+            user.setPermissions(Permission.defaultsForRole(user.getRole()));
+            userRepository.save(user);
+        }
+    }
+
+    private Set<Permission> copiarPermisos(Set<Permission> permisos) {
+        if (permisos == null || permisos.isEmpty()) {
+            return EnumSet.noneOf(Permission.class);
+        }
+        return EnumSet.copyOf(permisos);
     }
 }

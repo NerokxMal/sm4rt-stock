@@ -39,6 +39,9 @@ public class Movimiento {
     @Column(nullable = false)
     private Integer stockNuevo;
 
+    @Column(length = 255)
+    private String motivo;
+
     @Column(nullable = false)
     private LocalDateTime fecha;
 

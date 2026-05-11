@@ -2,14 +2,19 @@ package com.malcom.sm4rtstock.controller;
 
 import com.malcom.sm4rtstock.model.Movimiento;
 import com.malcom.sm4rtstock.model.TipoMovimiento;
+import com.malcom.sm4rtstock.service.ExportService;
 import com.malcom.sm4rtstock.service.MovimientoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/movimientos")
@@ -17,6 +22,7 @@ import java.util.List;
 public class MovimientoController {
 
     private final MovimientoService movimientoService;
+    private final ExportService exportService;
 
     // ─── HISTORIAL POR PRODUCTO (existente) ───────────────────────────
     @GetMapping("/producto/{id}")
@@ -45,5 +51,26 @@ public class MovimientoController {
             @RequestParam(required = false) TipoMovimiento tipo
     ) {
         return ResponseEntity.ok(movimientoService.obtenerHistorial(desde, hasta, tipo));
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAuthority('DATA_EXPORT')")
+    public ResponseEntity<byte[]> exportar(
+            @RequestParam(defaultValue = "csv") String format,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) TipoMovimiento tipo
+    ) {
+        String normalized = format.toLowerCase(Locale.ROOT);
+        byte[] payload = exportService.exportarMovimientos(normalized, desde, hasta, tipo);
+        MediaType mediaType = "pdf".equals(normalized)
+                ? MediaType.APPLICATION_PDF
+                : MediaType.parseMediaType("text/csv");
+        String extension = "pdf".equals(normalized) ? "pdf" : "csv";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"movimientos." + extension + "\"")
+                .contentType(mediaType)
+                .body(payload);
     }
 }

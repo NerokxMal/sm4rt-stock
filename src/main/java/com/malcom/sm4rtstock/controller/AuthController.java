@@ -1,5 +1,6 @@
 package com.malcom.sm4rtstock.controller;
 
+import com.malcom.sm4rtstock.model.Permission;
 import com.malcom.sm4rtstock.model.Role;
 import com.malcom.sm4rtstock.service.AuthService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/auth")
@@ -53,18 +55,31 @@ public class AuthController {
         private String passwordConfirmar;
     }
 
+    @Data
+    static class UpdatePermissionsRequest {
+        private Set<Permission> permissions;
+    }
+
     // ─── AUTH BÁSICA ──────────────────────────────────────────────────
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody AuthRequest request) {
+    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody AuthRequest request) {
         AuthService.AuthResponse response = authService.register(request.getUsername(), request.getPassword());
-        return ResponseEntity.status(201).body(Map.of("token", response.token(), "role", response.role()));
+        return ResponseEntity.status(201).body(Map.of(
+                "token", response.token(),
+                "role", response.role(),
+                "permissions", response.permissions()
+        ));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody AuthRequest request) {
+    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody AuthRequest request) {
         AuthService.AuthResponse response = authService.login(request.getUsername(), request.getPassword());
-        return ResponseEntity.ok(Map.of("token", response.token(), "role", response.role()));
+        return ResponseEntity.ok(Map.of(
+                "token", response.token(),
+                "role", response.role(),
+                "permissions", response.permissions()
+        ));
     }
 
     // ─── GESTIÓN DE USUARIOS (solo ADMIN) ────────────────────────────
@@ -113,6 +128,21 @@ public class AuthController {
         ));
     }
 
+    @PutMapping("/users/{username}/permissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> actualizarPermisos(
+            @PathVariable String username,
+            @RequestBody UpdatePermissionsRequest request) {
+        authService.actualizarPermisos(username, request.getPermissions());
+        return ResponseEntity.ok(Map.of("message", "Permisos actualizados"));
+    }
+
+    @GetMapping("/permissions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Permission>> listarPermisosDisponibles() {
+        return ResponseEntity.ok(authService.listarPermisosDisponibles());
+    }
+
     // ─── CONTRASEÑA PROPIA (usuario autenticado) ──────────────────────
 
     // PUT /auth/password → el usuario autenticado cambia su propia contraseña.
@@ -136,5 +166,10 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(Map.of("message", "Contraseña actualizada correctamente"));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthService.UsuarioDTO> perfil(Authentication authentication) {
+        return ResponseEntity.ok(authService.obtenerUsuarioPorUsername(authentication.getName()));
     }
 }

@@ -31,14 +31,14 @@ public class DashboardService {
                 .sum();
 
         int stockBajo = (int) productos.stream()
-                .filter(p -> p.getStock() < 5)
+                .filter(p -> p.getStock() <= (p.getUmbralCritico() != null ? p.getUmbralCritico() : 5))
                 .count();
 
         // ─── Tabla de stock crítico ────────────────────────────────────
         // Los 5 productos con menos stock, ordenados de menor a mayor.
         // Esta lista alimenta la tabla de alerta en el dashboard.
         List<Producto> productosStockBajo = productos.stream()
-                .filter(p -> p.getStock() < 5)
+                .filter(p -> p.getStock() <= (p.getUmbralCritico() != null ? p.getUmbralCritico() : 5))
                 .sorted(Comparator.comparingInt(Producto::getStock))
                 .limit(5)
                 .collect(Collectors.toList());
@@ -81,8 +81,12 @@ public class DashboardService {
             porDia.computeIfAbsent(dia, k -> new int[]{0, 0});
             if (m.getTipo() == TipoMovimiento.ENTRADA) {
                 porDia.get(dia)[0] += m.getCantidad();  // índice 0 = entradas
-            } else {
+            } else if (m.getTipo() == TipoMovimiento.SALIDA) {
                 porDia.get(dia)[1] += m.getCantidad();  // índice 1 = salidas
+            } else if (m.getStockNuevo() >= m.getStockAnterior()) {
+                porDia.get(dia)[0] += m.getCantidad();
+            } else {
+                porDia.get(dia)[1] += m.getCantidad();
             }
         });
 

@@ -10,8 +10,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -38,6 +41,16 @@ public class User implements UserDetails {
     @Builder.Default
     private Role role = Role.USER;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_permissions",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "permission", nullable = false)
+    @Builder.Default
+    private Set<Permission> permissions = EnumSet.noneOf(Permission.class);
+
     // Campo nuevo: permite desactivar cuentas sin borrarlas.
     // Hibernate crea la columna "enabled" en la tabla users.
     // ddl-auto=update la agrega automáticamente sin perder datos.
@@ -47,7 +60,13 @@ public class User implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        if (permissions != null) {
+            permissions.forEach(permission ->
+                    authorities.add(new SimpleGrantedAuthority(permission.name())));
+        }
+        return authorities;
     }
 
     @Override

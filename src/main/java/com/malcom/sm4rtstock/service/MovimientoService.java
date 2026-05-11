@@ -34,6 +34,25 @@ public class MovimientoService {
                 .cantidad(Math.abs(diferencia))
                 .stockAnterior(stockAnterior)
                 .stockNuevo(stockNuevo)
+                .motivo(null)
+                .build();
+
+        movimientoRepository.save(m);
+    }
+
+    @Transactional
+    public void registrarAjuste(Producto producto, User usuario, int stockAnterior, int stockNuevo, String motivo) {
+        int diferencia = stockNuevo - stockAnterior;
+        if (diferencia == 0) return;
+
+        Movimiento m = Movimiento.builder()
+                .producto(producto)
+                .usuario(usuario)
+                .tipo(TipoMovimiento.AJUSTE)
+                .cantidad(Math.abs(diferencia))
+                .stockAnterior(stockAnterior)
+                .stockNuevo(stockNuevo)
+                .motivo(motivo)
                 .build();
 
         movimientoRepository.save(m);

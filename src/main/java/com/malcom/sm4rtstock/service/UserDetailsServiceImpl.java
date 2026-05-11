@@ -1,5 +1,7 @@
 package com.malcom.sm4rtstock.service;
 
+import com.malcom.sm4rtstock.model.Permission;
+import com.malcom.sm4rtstock.model.User;
 import com.malcom.sm4rtstock.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,8 +27,13 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // Busca el usuario en la BD. Si no existe, lanza UsernameNotFoundException
         // que Spring Security convierte en 401 Unauthorized automáticamente.
-        return userRepository.findByUsername(username)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "Usuario no encontrado: " + username));
+        if (user.getPermissions() == null || user.getPermissions().isEmpty()) {
+            user.setPermissions(Permission.defaultsForRole(user.getRole()));
+            userRepository.save(user);
+        }
+        return user;
     }
 }

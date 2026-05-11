@@ -33,6 +33,10 @@ public class Producto {
     @Column(nullable = false)
     private Integer stock;
 
+    @Column
+    @Builder.Default
+    private Integer umbralCritico = 5;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "categoria_id", nullable = true)
     private Categoria categoria;
