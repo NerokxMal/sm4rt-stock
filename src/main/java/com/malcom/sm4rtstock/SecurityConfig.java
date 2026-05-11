@@ -71,6 +71,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/dashboard/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         // Solo ADMIN puede crear, editar, eliminar:
+                        .requestMatchers(HttpMethod.GET, "/auth/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/auth/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/auth/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/auth/password").authenticated()
                         .requestMatchers(HttpMethod.POST, "/productos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/productos/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/productos/**").hasRole("ADMIN")
