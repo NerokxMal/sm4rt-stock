@@ -4,6 +4,7 @@ import com.malcom.sm4rtstock.model.Permission;
 import com.malcom.sm4rtstock.model.User;
 import com.malcom.sm4rtstock.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -24,6 +25,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
+    @Cacheable(cacheNames = "usersByUsername", key = "#username")
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // Busca el usuario en la BD. Si no existe, lanza UsernameNotFoundException
         // que Spring Security convierte en 401 Unauthorized automáticamente.

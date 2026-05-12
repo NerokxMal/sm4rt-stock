@@ -78,6 +78,9 @@ public class MovimientoService {
                 ? hasta.atTime(23, 59, 59)
                 : LocalDateTime.now();
 
-        return movimientoRepository.findHistorial(desdeDateTime, hastaDateTime, tipo);
+        if (tipo == null) {
+            return movimientoRepository.findByFechaBetweenOrderByFechaDesc(desdeDateTime, hastaDateTime);
+        }
+        return movimientoRepository.findByFechaBetweenAndTipoOrderByFechaDesc(desdeDateTime, hastaDateTime, tipo);
     }
 }

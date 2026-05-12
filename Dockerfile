@@ -1,19 +1,27 @@
 FROM maven:3.9.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 
-COPY pom.xml mvnw ./
-COPY .mvn .mvn
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
 RUN chmod +x mvnw
-RUN ./mvnw -q -DskipTests dependency:go-offline
 
-COPY src src
-RUN ./mvnw -q -DskipTests clean package
+# Descarga dependencias en una capa separada para aprovechar cache.
+RUN ./mvnw -B -ntp -DskipTests dependency:go-offline
 
-FROM eclipse-temurin:17-jre
+COPY src/ src/
+
+# Nombre de JAR predecible para evitar comodines ambiguos.
+RUN ./mvnw -B -ntp -DskipTests package -DfinalName=app
+
+FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
-COPY --from=builder /app/target/*.jar app.jar
+RUN groupadd --system spring && useradd --system --gid spring --create-home spring
+
+COPY --from=builder --chown=spring:spring /app/target/app.jar /app/app.jar
+
+USER spring:spring
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dserver.port=${PORT:-8080} -jar /app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]

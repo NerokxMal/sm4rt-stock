@@ -17,6 +17,14 @@ public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
     // Historial de un producto, más reciente primero
     List<Movimiento> findByProductoIdOrderByFechaDesc(Long productoId);
 
+    List<Movimiento> findByFechaBetweenOrderByFechaDesc(LocalDateTime desde, LocalDateTime hasta);
+
+    List<Movimiento> findByFechaBetweenAndTipoOrderByFechaDesc(
+            LocalDateTime desde,
+            LocalDateTime hasta,
+            TipoMovimiento tipo
+    );
+
     // Para el dashboard: movimientos desde una fecha
     @Query("SELECT m FROM Movimiento m WHERE m.fecha >= :desde ORDER BY m.fecha ASC")
     List<Movimiento> findDesde(@Param("desde") LocalDateTime desde);
@@ -42,12 +50,33 @@ public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
 
     @Query("""
         SELECT m FROM Movimiento m
-        LEFT JOIN m.producto p
-        LEFT JOIN m.usuario u
+        LEFT JOIN FETCH m.producto p
+        LEFT JOIN FETCH m.usuario u
         WHERE LOWER(COALESCE(p.nombre, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
            OR LOWER(COALESCE(u.username, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
            OR LOWER(COALESCE(m.motivo, '')) LIKE LOWER(CONCAT('%', :termino, '%'))
         ORDER BY m.fecha DESC
         """)
     List<Movimiento> buscarGlobal(@Param("termino") String termino, Pageable pageable);
+
+    @Query("""
+        SELECT FUNCTION('DATE_FORMAT', m.fecha, '%d/%m'),
+               SUM(CASE
+                       WHEN m.tipo = com.malcom.sm4rtstock.model.TipoMovimiento.ENTRADA
+                            OR (m.tipo = com.malcom.sm4rtstock.model.TipoMovimiento.AJUSTE AND m.stockNuevo >= m.stockAnterior)
+                       THEN m.cantidad
+                       ELSE 0
+                   END),
+               SUM(CASE
+                       WHEN m.tipo = com.malcom.sm4rtstock.model.TipoMovimiento.SALIDA
+                            OR (m.tipo = com.malcom.sm4rtstock.model.TipoMovimiento.AJUSTE AND m.stockNuevo < m.stockAnterior)
+                       THEN m.cantidad
+                       ELSE 0
+                   END)
+        FROM Movimiento m
+        WHERE m.fecha >= :desde
+        GROUP BY FUNCTION('DATE', m.fecha), FUNCTION('DATE_FORMAT', m.fecha, '%d/%m')
+        ORDER BY FUNCTION('DATE', m.fecha) ASC
+        """)
+    List<Object[]> resumirPorDia(@Param("desde") LocalDateTime desde);
 }

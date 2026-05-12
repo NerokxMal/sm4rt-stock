@@ -31,6 +31,21 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     @Query("SELECT p FROM Producto p WHERE p.stock <= COALESCE(p.umbralCritico, 5) ORDER BY p.stock ASC")
     List<Producto> findStockCritico();
 
+    @Query("SELECT p FROM Producto p WHERE p.stock <= COALESCE(p.umbralCritico, 5) ORDER BY p.stock ASC")
+    List<Producto> findStockCritico(Pageable pageable);
+
     @Query("SELECT COUNT(p) FROM Producto p WHERE p.stock <= COALESCE(p.umbralCritico, 5)")
     long countStockCritico();
+
+    @Query("SELECT COALESCE(SUM(p.precio * p.stock), 0) FROM Producto p")
+    Double calcularValorInventario();
+
+    @Query("""
+        SELECT COALESCE(c.nombre, 'Sin categoría'), COUNT(p)
+        FROM Producto p
+        LEFT JOIN p.categoria c
+        GROUP BY COALESCE(c.nombre, 'Sin categoría')
+        ORDER BY COUNT(p) DESC
+        """)
+    List<Object[]> contarProductosPorCategoria();
 }

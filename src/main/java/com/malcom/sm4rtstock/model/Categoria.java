@@ -8,7 +8,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 @Entity
-@Table(name = "categorias")
+@Table(
+        name = "categorias",
+        indexes = {
+                @Index(name = "idx_categoria_parent", columnList = "parent_id")
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

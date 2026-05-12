@@ -5,7 +5,14 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 @Entity
-@Table(name = "productos")
+@Table(
+        name = "productos",
+        indexes = {
+                @Index(name = "idx_producto_nombre", columnList = "nombre"),
+                @Index(name = "idx_producto_categoria", columnList = "categoria_id"),
+                @Index(name = "idx_producto_stock", columnList = "stock")
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

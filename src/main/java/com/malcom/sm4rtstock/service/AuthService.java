@@ -8,6 +8,8 @@ import com.malcom.sm4rtstock.model.User;
 import com.malcom.sm4rtstock.repository.UserRepository;
 import com.malcom.sm4rtstock.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,10 +22,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String USER_DETAILS_CACHE = "usersByUsername";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuditoriaService auditoriaService;
+    private final CacheManager cacheManager;
 
     // ─── Record de respuesta auth ─────────────────────────────────────
     public record AuthResponse(String token, String role, Set<Permission> permissions) {}
@@ -44,6 +49,7 @@ public class AuthService {
                 .permissions(Permission.defaultsForRole(Role.USER))
                 .build();
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "CREAR",
                 "USUARIO",
@@ -71,6 +77,7 @@ public class AuthService {
                 .permissions(Permission.defaultsForRole(role))
                 .build();
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "CREAR",
                 "USUARIO",
@@ -122,6 +129,7 @@ public class AuthService {
         user.setRole(role);
         user.setPermissions(Permission.defaultsForRole(role));
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "CAMBIAR_ROL",
                 "USUARIO",
@@ -137,6 +145,7 @@ public class AuthService {
                 ? EnumSet.noneOf(Permission.class)
                 : EnumSet.copyOf(permisos));
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "ACTUALIZAR_PERMISOS",
                 "USUARIO",
@@ -153,6 +162,7 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
         user.setEnabled(!user.isEnabled());
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "CAMBIAR_ESTADO",
                 "USUARIO",
@@ -176,6 +186,7 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(passwordNuevo));
         userRepository.save(user);
+        evictUserCache(user.getUsername());
         auditoriaService.registrar(
                 "CAMBIAR_PASSWORD",
                 "USUARIO",
@@ -205,6 +216,17 @@ public class AuthService {
         if (user.getPermissions() == null || user.getPermissions().isEmpty()) {
             user.setPermissions(Permission.defaultsForRole(user.getRole()));
             userRepository.save(user);
+            evictUserCache(user.getUsername());
+        }
+    }
+
+    private void evictUserCache(String username) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        Cache cache = cacheManager.getCache(USER_DETAILS_CACHE);
+        if (cache != null) {
+            cache.evict(username);
         }
     }
 
